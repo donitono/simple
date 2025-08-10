@@ -5,6 +5,21 @@
 -- ██                                                          ██
 -- ██████████████████████████████████████████████████████████████
 
+-- ===================================================================
+--                          CONFIGURATION
+-- ===================================================================
+local CONFIG = {
+    GUI_NAME = "GamerXsan", -- Ganti nama GUI disini
+    GUI_TITLE = "Simple Fishing Bot", -- Ganti judul yang ditampilkan
+    LOGO_IMAGE = "rbxassetid://10776847027", -- Ganti dengan ID gambar kamu
+    HOTKEY = Enum.KeyCode.F9, -- Hide/Show GUI
+    AUTO_SAVE_SETTINGS = true,
+    FISHING_DELAYS = {
+        MIN = 0.1,
+        MAX = 0.3
+    }
+}
+
 local success, error = pcall(function()
 
 -- Check if GUI already exists and destroy it
@@ -20,21 +35,6 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Rs = game:GetService("ReplicatedStorage")
-
--- ===================================================================
---                          CONFIGURATION
--- ===================================================================
-local CONFIG = {
-    GUI_NAME = "GamerXsan", -- Ganti nama GUI disini
-    GUI_TITLE = "Simple Fishing Bot", -- Ganti judul yang ditampilkan
-    LOGO_IMAGE = "rbxassetid://10776847027", -- Ganti dengan ID gambar kamu
-    HOTKEY = Enum.KeyCode.F9, -- Hide/Show GUI
-    AUTO_SAVE_SETTINGS = true,
-    FISHING_DELAYS = {
-        MIN = 0.1,
-        MAX = 0.3
-    }
-}
 
 -- ===================================================================
 --                           VARIABLES
