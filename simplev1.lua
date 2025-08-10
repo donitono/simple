@@ -8,8 +8,8 @@
 local success, error = pcall(function()
 
 -- Check if GUI already exists and destroy it
-if game.Players.LocalPlayer.PlayerGui:FindFirstChild("ZayrosFISHIT") then
-    game.Players.LocalPlayer.PlayerGui.ZayrosFISHIT:Destroy()
+if game.Players.LocalPlayer.PlayerGui:FindFirstChild("GameXsan") then
+    game.Players.LocalPlayer.PlayerGui.GameXsan:Destroy()
 end
 
 -- ===================================================================
@@ -25,7 +25,7 @@ local Rs = game:GetService("ReplicatedStorage")
 --                          CONFIGURATION
 -- ===================================================================
 local CONFIG = {
-    GUI_NAME = "ZayrosFISHIT",
+    GUI_NAME = "GameXsan",
     HOTKEY = Enum.KeyCode.F9, -- Hide/Show GUI
     AUTO_SAVE_SETTINGS = true,
     FISHING_DELAYS = {
@@ -386,7 +386,7 @@ local function checkPlayerProximity()
                         
                         if SecuritySettings.AutoHideOnAdmin then
                             isHidden = true
-                            local gui = player.PlayerGui:FindFirstChild("ZayrosFISHIT")
+                            local gui = player.PlayerGui:FindFirstChild("GameXsan")
                             if gui then gui.Enabled = false end
                             SecurityStats.AutoHides = SecurityStats.AutoHides + 1
                         end
@@ -403,7 +403,7 @@ local function checkPlayerProximity()
                     
                     if SecuritySettings.AutoHideOnAdmin then
                         isHidden = true
-                        local gui = player.PlayerGui:FindFirstChild("ZayrosFISHIT")
+                        local gui = player.PlayerGui:FindFirstChild("GameXsan")
                         if gui then gui.Enabled = false end
                         SecurityStats.AutoHides = SecurityStats.AutoHides + 1
                     end
@@ -434,7 +434,7 @@ local function monitorChatForAdmins()
                         
                         if SecuritySettings.AutoHideOnAdmin then
                             isHidden = true
-                            local gui = player.PlayerGui:FindFirstChild("ZayrosFISHIT")
+                            local gui = player.PlayerGui:FindFirstChild("GameXsan")
                             if gui then gui.Enabled = false end
                             SecurityStats.AutoHides = SecurityStats.AutoHides + 1
                         end
@@ -588,7 +588,7 @@ end
 --                      NOTIFICATION SYSTEM
 -- ===================================================================
 local function createNotification(text, color)
-    local gui = player.PlayerGui:FindFirstChild("ZayrosFISHIT")
+    local gui = player.PlayerGui:FindFirstChild("GameXsan")
     if not gui then return end
     
     local notification = Instance.new("Frame")
@@ -633,15 +633,15 @@ end
 -- ===================================================================
 local function createCompleteGUI()
     -- Create main ScreenGui
-    local ZayrosFISHIT = Instance.new("ScreenGui")
-    ZayrosFISHIT.Name = CONFIG.GUI_NAME
-    ZayrosFISHIT.Parent = player:WaitForChild("PlayerGui")
-    ZayrosFISHIT.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    local GameXsan = Instance.new("ScreenGui")
+    GameXsan.Name = CONFIG.GUI_NAME
+    GameXsan.Parent = player:WaitForChild("PlayerGui")
+    GameXsan.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     -- Main Frame
     local FrameUtama = Instance.new("Frame")
     FrameUtama.Name = "FrameUtama"
-    FrameUtama.Parent = ZayrosFISHIT
+    FrameUtama.Parent = GameXsan
     FrameUtama.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     FrameUtama.BackgroundTransparency = 0.200
     FrameUtama.BorderSizePixel = 0
@@ -1786,7 +1786,7 @@ local function createCompleteGUI()
     
     -- Exit button
     connections[#connections + 1] = ExitBtn.MouseButton1Click:Connect(function()
-        ZayrosFISHIT:Destroy()
+        GameXsan:Destroy()
         for _, connection in pairs(connections) do
             if connection and connection.Connected then
                 connection:Disconnect()
@@ -2173,7 +2173,7 @@ local function createCompleteGUI()
     -- Create floating toggle button
     local FloatingButton = Instance.new("Frame")
     FloatingButton.Name = "FloatingButton"
-    FloatingButton.Parent = ZayrosFISHIT
+    FloatingButton.Parent = GameXsan
     FloatingButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     FloatingButton.BackgroundTransparency = 0.1
     FloatingButton.BorderSizePixel = 0
@@ -2384,7 +2384,7 @@ local function createCompleteGUI()
     print("🍀 Advanced Features: Luck System, Weather Effects, Smart Fishing")
     print("📊 Analytics: Fish Rarity Tracking, Money Counter, Performance Stats")
 
-    return ZayrosFISHIT
+    return GameXsan
 end
 
 -- ===================================================================
