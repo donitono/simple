@@ -783,7 +783,7 @@ local function createCompleteGUI()
     Credit.Position = UDim2.new(0, 0, 0.875, 0)
     Credit.Size = UDim2.new(0.998, 0, 0.123, 0)
     Credit.Font = Enum.Font.SourceSansBold
-    Credit.Text = "Made by Doovy :D"
+    Credit.Text = "Made by Xsan :D"
     Credit.TextColor3 = Color3.fromRGB(255, 255, 255)
     Credit.TextScaled = true
 
