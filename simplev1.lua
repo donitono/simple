@@ -1,15 +1,15 @@
 -- ██████████████████████████████████████████████████████████████
 -- ██                                                          ██
--- ██                   ZAYROS FISHIT V2.0                    ██
--- ██                 COMPLETE & READY TO USE                 ██
+-- ██                 GamerXsan FISHIT V2.0                    ██
+-- ██                 COMPLETE & READY TO USE                   ██
 -- ██                                                          ██
 -- ██████████████████████████████████████████████████████████████
 
 local success, error = pcall(function()
 
 -- Check if GUI already exists and destroy it
-if game.Players.LocalPlayer.PlayerGui:FindFirstChild("GameXsan") then
-    game.Players.LocalPlayer.PlayerGui.GameXsan:Destroy()
+if game.Players.LocalPlayer.PlayerGui:FindFirstChild(CONFIG.GUI_NAME) then
+    game.Players.LocalPlayer.PlayerGui[CONFIG.GUI_NAME]:Destroy()
 end
 
 -- ===================================================================
@@ -25,7 +25,9 @@ local Rs = game:GetService("ReplicatedStorage")
 --                          CONFIGURATION
 -- ===================================================================
 local CONFIG = {
-    GUI_NAME = "GameXsan",
+    GUI_NAME = "GamerXsan", -- Ganti nama GUI disini
+    GUI_TITLE = "Simple Fishing Bot", -- Ganti judul yang ditampilkan
+    LOGO_IMAGE = "rbxassetid://10776847027", -- Ganti dengan ID gambar kamu
     HOTKEY = Enum.KeyCode.F9, -- Hide/Show GUI
     AUTO_SAVE_SETTINGS = true,
     FISHING_DELAYS = {
@@ -386,7 +388,7 @@ local function checkPlayerProximity()
                         
                         if SecuritySettings.AutoHideOnAdmin then
                             isHidden = true
-                            local gui = player.PlayerGui:FindFirstChild("GameXsan")
+                            local gui = player.PlayerGui:FindFirstChild(CONFIG.GUI_NAME)
                             if gui then gui.Enabled = false end
                             SecurityStats.AutoHides = SecurityStats.AutoHides + 1
                         end
@@ -403,7 +405,7 @@ local function checkPlayerProximity()
                     
                     if SecuritySettings.AutoHideOnAdmin then
                         isHidden = true
-                        local gui = player.PlayerGui:FindFirstChild("GameXsan")
+                        local gui = player.PlayerGui:FindFirstChild(CONFIG.GUI_NAME)
                         if gui then gui.Enabled = false end
                         SecurityStats.AutoHides = SecurityStats.AutoHides + 1
                     end
@@ -434,7 +436,7 @@ local function monitorChatForAdmins()
                         
                         if SecuritySettings.AutoHideOnAdmin then
                             isHidden = true
-                            local gui = player.PlayerGui:FindFirstChild("GameXsan")
+                            local gui = player.PlayerGui:FindFirstChild(CONFIG.GUI_NAME)
                             if gui then gui.Enabled = false end
                             SecurityStats.AutoHides = SecurityStats.AutoHides + 1
                         end
@@ -588,7 +590,7 @@ end
 --                      NOTIFICATION SYSTEM
 -- ===================================================================
 local function createNotification(text, color)
-    local gui = player.PlayerGui:FindFirstChild("GameXsan")
+    local gui = player.PlayerGui:FindFirstChild(CONFIG.GUI_NAME)
     if not gui then return end
     
     local notification = Instance.new("Frame")
@@ -633,15 +635,15 @@ end
 -- ===================================================================
 local function createCompleteGUI()
     -- Create main ScreenGui
-    local GameXsan = Instance.new("ScreenGui")
-    GameXsan.Name = CONFIG.GUI_NAME
-    GameXsan.Parent = player:WaitForChild("PlayerGui")
-    GameXsan.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    local ZayrosFISHIT = Instance.new("ScreenGui")
+    ZayrosFISHIT.Name = CONFIG.GUI_NAME
+    ZayrosFISHIT.Parent = player:WaitForChild("PlayerGui")
+    ZayrosFISHIT.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     -- Main Frame
     local FrameUtama = Instance.new("Frame")
     FrameUtama.Name = "FrameUtama"
-    FrameUtama.Parent = GameXsan
+    FrameUtama.Parent = ZayrosFISHIT
     FrameUtama.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     FrameUtama.BackgroundTransparency = 0.200
     FrameUtama.BorderSizePixel = 0
@@ -703,7 +705,7 @@ local function createCompleteGUI()
     Logo.Position = UDim2.new(0.073, 0, 0.038, 0)
     Logo.Size = UDim2.new(0.168, 0, 0.088, 0)
     Logo.ZIndex = 2
-    Logo.Image = "rbxassetid://136555589792977"
+    Logo.Image = CONFIG.LOGO_IMAGE
     
     local logoCorner = Instance.new("UICorner")
     logoCorner.CornerRadius = UDim.new(0, 10)
@@ -718,7 +720,7 @@ local function createCompleteGUI()
     TittleSideBar.Size = UDim2.new(0.654, 0, 0.088, 0)
     TittleSideBar.ZIndex = 2
     TittleSideBar.Font = Enum.Font.SourceSansBold
-    TittleSideBar.Text = "Zayros FISHIT"
+    TittleSideBar.Text = CONFIG.GUI_TITLE
     TittleSideBar.TextColor3 = Color3.fromRGB(255, 255, 255)
     TittleSideBar.TextScaled = true
     TittleSideBar.TextXAlignment = Enum.TextXAlignment.Left
@@ -1786,7 +1788,7 @@ local function createCompleteGUI()
     
     -- Exit button
     connections[#connections + 1] = ExitBtn.MouseButton1Click:Connect(function()
-        GameXsan:Destroy()
+        ZayrosFISHIT:Destroy()
         for _, connection in pairs(connections) do
             if connection and connection.Connected then
                 connection:Disconnect()
@@ -2173,7 +2175,7 @@ local function createCompleteGUI()
     -- Create floating toggle button
     local FloatingButton = Instance.new("Frame")
     FloatingButton.Name = "FloatingButton"
-    FloatingButton.Parent = GameXsan
+    FloatingButton.Parent = ZayrosFISHIT
     FloatingButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     FloatingButton.BackgroundTransparency = 0.1
     FloatingButton.BorderSizePixel = 0
@@ -2242,10 +2244,10 @@ local function createCompleteGUI()
         FrameUtama.Visible = not isHidden
         
         if isHidden then
-            FloatingButtonText.Text = "👁️"
+            FloatingButtonText.Text = "🌊"
             createNotification("📦 GUI Hidden", Color3.fromRGB(255, 165, 0))
         else
-            FloatingButtonText.Text = "🎣"
+            FloatingButtonText.Text = "🌊"
             createNotification("📦 GUI Shown", Color3.fromRGB(0, 255, 0))
         end
     end)
@@ -2372,7 +2374,7 @@ local function createCompleteGUI()
     showPanel("Main")
     updatePlayerList()
 
-    print("✅ Zayros FISHIT V2.0 loaded successfully!")
+    print("✅ " .. CONFIG.GUI_TITLE .. " V2.0 loaded successfully!")
     print("📌 Press F9 to hide/show GUI")
     print("🎣 Auto Fish with enhanced safety features")
     print("🚤 Multiple boat spawning options")
@@ -2384,7 +2386,7 @@ local function createCompleteGUI()
     print("🍀 Advanced Features: Luck System, Weather Effects, Smart Fishing")
     print("📊 Analytics: Fish Rarity Tracking, Money Counter, Performance Stats")
 
-    return GameXsan
+    return ZayrosFISHIT
 end
 
 -- ===================================================================
