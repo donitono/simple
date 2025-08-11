@@ -10,7 +10,7 @@
 -- ===================================================================
 local CONFIG = {
     GUI_NAME = "GamerXsan", -- Ganti nama GUI disini
-    GUI_TITLE = "Simple Fishing Bot", -- Ganti judul yang ditampilkan
+    GUI_TITLE = "Mod GamerXsan", -- Ganti judul yang ditampilkan
     LOGO_IMAGE = "rbxassetid://10776847027", -- Ganti dengan ID gambar kamu
     HOTKEY = Enum.KeyCode.F9, -- Hide/Show GUI
     AUTO_SAVE_SETTINGS = true,
@@ -1033,7 +1033,7 @@ local function createCompleteGUI()
     Credit.Position = UDim2.new(0, 0, 0.875, 0)
     Credit.Size = UDim2.new(0.998, 0, 0.123, 0)
     Credit.Font = Enum.Font.SourceSansBold
-    Credit.Text = "Made by Doovy :D"
+    Credit.Text = "Telegram @Spinnerxxx"
     Credit.TextColor3 = Color3.fromRGB(255, 255, 255)
     Credit.TextScaled = true
 
