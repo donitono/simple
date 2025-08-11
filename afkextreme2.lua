@@ -48,7 +48,6 @@ local Rs = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local connections = {}
 local isHidden = false
-local isMinimized = false
 
 -- ===================================================================
 --                        SECURITY FEATURES
@@ -135,55 +134,12 @@ local Stats = {
     boatsSpawned = 0,
     rareFishCaught = 0,
     legendaryFishCaught = 0,
-    mythicalFishCaught = 0,
     currentLuckLevel = 1,
     fishPerMinute = 0,
     moneyPerHour = 0,
     bestSpot = "None",
     weatherBonuses = 0,
-    timeBonuses = 0,
-    
-    -- Real-time Analytics
-    averageFishTime = 0,
-    longestSession = 0,
-    shortestSession = 999999,
-    totalSessions = 0,
-    fishingStreak = 0,
-    bestFishingStreak = 0,
-    totalDistance = 0,
-    locationsVisited = {},
-    fishingHotspots = {},
-    hourlyStats = {},
-    dailyGoals = {
-        fishTarget = 100,
-        moneyTarget = 5000,
-        fishCaught = 0,
-        moneyEarned = 0
-    },
-    weeklyStats = {
-        totalFish = 0,
-        totalMoney = 0,
-        averageSession = 0,
-        bestDay = "Monday"
-    },
-    fishTypes = {
-        common = 0,
-        uncommon = 0,
-        rare = 0,
-        legendary = 0,
-        mythical = 0
-    },
-    baitUsage = {
-        total = 0,
-        successful = 0,
-        efficiency = 0
-    },
-    performance = {
-        cpu = 0,
-        memory = 0,
-        ping = 0,
-        fps = 0
-    }
+    timeBonuses = 0
 }
 
 -- ===================================================================
@@ -243,223 +199,6 @@ local FishingSpots = {
 }
 
 local currentSpot = FishingSpots[1]
-
--- ===================================================================
---                      REAL-TIME ANALYTICS SYSTEM
--- ===================================================================
-local Analytics = {
-    isTracking = true,
-    updateInterval = 1, -- seconds
-    chartData = {
-        fishPerHour = {},
-        moneyPerHour = {},
-        luckTrend = {},
-        efficiencyScore = {}
-    },
-    predictions = {
-        nextRareFish = 0,
-        optimalFishingTime = "",
-        recommendedLocation = "",
-        luckBoostSuggestion = ""
-    }
-}
-
--- Real-time performance tracking
-local function updateRealTimeStats()
-    task.spawn(function()
-        while Analytics.isTracking do
-            local currentTime = tick()
-            local sessionTime = currentTime - Stats.sessionStartTime
-            
-            -- Update session stats
-            Stats.totalPlayTime = sessionTime
-            if sessionTime > Stats.longestSession then
-                Stats.longestSession = sessionTime
-            end
-            
-            -- Calculate real rates
-            if sessionTime > 0 then
-                Stats.fishPerMinute = (Stats.fishCaught / sessionTime) * 60
-                Stats.moneyPerHour = (Stats.moneyEarned / sessionTime) * 3600
-            end
-            
-            -- Update hourly stats
-            local currentHour = tonumber(os.date("%H"))
-            if not Stats.hourlyStats[currentHour] then
-                Stats.hourlyStats[currentHour] = {fish = 0, money = 0, time = 0}
-            end
-            Stats.hourlyStats[currentHour].time = Stats.hourlyStats[currentHour].time + Analytics.updateInterval
-            
-            -- Performance monitoring
-            Stats.performance.fps = math.floor(1 / RunService.Heartbeat:Wait())
-            Stats.performance.ping = math.random(20, 100) -- Simulate ping
-            Stats.performance.cpu = math.random(10, 60) -- Simulate CPU usage
-            Stats.performance.memory = math.random(200, 800) -- Simulate memory usage
-            
-            -- Efficiency calculations
-            if Stats.baitUsage.total > 0 then
-                Stats.baitUsage.efficiency = (Stats.baitUsage.successful / Stats.baitUsage.total) * 100
-            end
-            
-            -- Predictions based on current data
-            updatePredictions()
-            
-            task.wait(Analytics.updateInterval)
-        end
-    end)
-end
-
--- Advanced prediction system
-local function updatePredictions()
-    -- Predict next rare fish based on streak and luck
-    local rareFishChance = calculateCurrentLuck() * 100
-    if rareFishChance > 15 then
-        Analytics.predictions.nextRareFish = math.random(1, 5) -- 1-5 more fish
-    else
-        Analytics.predictions.nextRareFish = math.random(10, 25)
-    end
-    
-    -- Optimal fishing time prediction
-    local currentHour = tonumber(os.date("%H"))
-    local bestHour = 0
-    local bestRate = 0
-    
-    for hour, data in pairs(Stats.hourlyStats) do
-        if data.time > 0 then
-            local hourlyRate = data.fish / data.time
-            if hourlyRate > bestRate then
-                bestRate = hourlyRate
-                bestHour = hour
-            end
-        end
-    end
-    
-    if bestHour > 0 then
-        Analytics.predictions.optimalFishingTime = string.format("%02d:00 - %02d:00", bestHour, bestHour + 1)
-    else
-        Analytics.predictions.optimalFishingTime = "Collecting data..."
-    end
-    
-    -- Location recommendation
-    if Stats.fishingHotspots and #Stats.fishingHotspots > 0 then
-        local bestSpot = Stats.fishingHotspots[1]
-        Analytics.predictions.recommendedLocation = bestSpot.name or "Current Location"
-    else
-        Analytics.predictions.recommendedLocation = "Stay here!"
-    end
-    
-    -- Luck boost suggestion
-    local currentLuck = calculateCurrentLuck()
-    if currentLuck < 1.5 then
-        Analytics.predictions.luckBoostSuggestion = "🍀 Enable luck boost for better catches!"
-    elseif currentLuck > 3.0 then
-        Analytics.predictions.luckBoostSuggestion = "⭐ Excellent luck! Keep fishing!"
-    else
-        Analytics.predictions.luckBoostSuggestion = "✨ Good luck level maintained"
-    end
-end
-
--- Advanced fish tracking
-local function trackFishCatch(rarity, value, location)
-    Stats.fishCaught = Stats.fishCaught + 1
-    Stats.moneyEarned = Stats.moneyEarned + value
-    
-    -- Track by rarity
-    local rarityLower = rarity:lower()
-    if Stats.fishTypes[rarityLower] then
-        Stats.fishTypes[rarityLower] = Stats.fishTypes[rarityLower] + 1
-    end
-    
-    -- Update streaks
-    Stats.fishingStreak = Stats.fishingStreak + 1
-    if Stats.fishingStreak > Stats.bestFishingStreak then
-        Stats.bestFishingStreak = Stats.fishingStreak
-    end
-    
-    -- Track hotspots
-    if location then
-        local found = false
-        for i, spot in ipairs(Stats.fishingHotspots) do
-            if spot.name == location then
-                spot.count = spot.count + 1
-                spot.totalValue = spot.totalValue + value
-                found = true
-                break
-            end
-        end
-        
-        if not found then
-            table.insert(Stats.fishingHotspots, {
-                name = location,
-                count = 1,
-                totalValue = value,
-                averageValue = value
-            })
-        end
-    end
-    
-    -- Update hourly stats
-    local currentHour = tonumber(os.date("%H"))
-    if Stats.hourlyStats[currentHour] then
-        Stats.hourlyStats[currentHour].fish = Stats.hourlyStats[currentHour].fish + 1
-        Stats.hourlyStats[currentHour].money = Stats.hourlyStats[currentHour].money + value
-    end
-    
-    -- Update daily goals
-    Stats.dailyGoals.fishCaught = Stats.dailyGoals.fishCaught + 1
-    Stats.dailyGoals.moneyEarned = Stats.dailyGoals.moneyEarned + value
-end
-
--- Calculate efficiency scores
-local function calculateEfficiencyScore()
-    local timeScore = 0
-    local luckScore = 0
-    local valueScore = 0
-    
-    -- Time efficiency (fish per minute)
-    if Stats.fishPerMinute > 5 then timeScore = 100
-    elseif Stats.fishPerMinute > 3 then timeScore = 80
-    elseif Stats.fishPerMinute > 1 then timeScore = 60
-    else timeScore = 40 end
-    
-    -- Luck efficiency
-    local currentLuck = calculateCurrentLuck()
-    if currentLuck > 3 then luckScore = 100
-    elseif currentLuck > 2 then luckScore = 80
-    elseif currentLuck > 1.5 then luckScore = 60
-    else luckScore = 40 end
-    
-    -- Value efficiency (money per hour)
-    if Stats.moneyPerHour > 2000 then valueScore = 100
-    elseif Stats.moneyPerHour > 1000 then valueScore = 80
-    elseif Stats.moneyPerHour > 500 then valueScore = 60
-    else valueScore = 40 end
-    
-    return math.floor((timeScore + luckScore + valueScore) / 3)
-end
-
--- Generate detailed analytics report
-local function generateAnalyticsReport()
-    local report = {
-        summary = {
-            totalFish = Stats.fishCaught,
-            totalMoney = Stats.moneyEarned,
-            sessionTime = string.format("%.1f min", Stats.totalPlayTime / 60),
-            efficiency = calculateEfficiencyScore() .. "%"
-        },
-        breakdown = {
-            common = Stats.fishTypes.common,
-            uncommon = Stats.fishTypes.uncommon,
-            rare = Stats.fishTypes.rare,
-            legendary = Stats.fishTypes.legendary,
-            mythical = Stats.fishTypes.mythical
-        },
-        performance = Stats.performance,
-        predictions = Analytics.predictions
-    }
-    
-    return report
-end
 
 -- ===================================================================
 --                       UTILITY FUNCTIONS
@@ -791,12 +530,12 @@ local function enhancedAutoFishing()
                 task.wait(0.4 + randomWait())
                 FishingComplete:FireServer()
                 
+                Stats.fishCaught = Stats.fishCaught + 1
+                
                 -- Simulate fish catch with luck system
                 local rarity, color = getFishRarity()
                 local fishValue = simulateFishValue(rarity)
-                
-                -- Use new tracking system
-                trackFishCatch(rarity, fishValue, currentSpot.name)
+                Stats.moneyEarned = Stats.moneyEarned + fishValue
                 
                 if rarity ~= "Common" then
                     createNotification("🎣 Caught " .. rarity .. " fish! (₡" .. fishValue .. ")", color)
@@ -1120,23 +859,6 @@ local function createCompleteGUI()
     exitCorner.CornerRadius = UDim.new(0, 4)
     exitCorner.Parent = ExitBtn
 
-    -- Minimize Button
-    local MinimizeBtn = Instance.new("TextButton")
-    MinimizeBtn.Name = "MinimizeBtn"
-    MinimizeBtn.Parent = FrameUtama
-    MinimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-    MinimizeBtn.BorderSizePixel = 0
-    MinimizeBtn.Position = UDim2.new(0.825, 0, 0.038, 0)
-    MinimizeBtn.Size = UDim2.new(0.063, 0, 0.088, 0)
-    MinimizeBtn.Font = Enum.Font.SourceSansBold
-    MinimizeBtn.Text = "_"
-    MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    MinimizeBtn.TextScaled = true
-    
-    local minimizeCorner = Instance.new("UICorner")
-    minimizeCorner.CornerRadius = UDim.new(0, 4)
-    minimizeCorner.Parent = MinimizeBtn
-
     -- Side Bar
     local SideBar = Instance.new("Frame")
     SideBar.Name = "SideBar"
@@ -1224,7 +946,6 @@ local function createCompleteGUI()
     local TELEPORT = createMenuButton("TELEPORT", "TELEPORT")
     local SECURITY = createMenuButton("SECURITY", "SECURITY")
     local ADVANCED = createMenuButton("ADVANCED", "ADVANCED")
-    local ANALYTICS = createMenuButton("ANALYTICS", "ANALYTICS")
 
     -- Credit
     local Credit = Instance.new("TextLabel")
@@ -1792,33 +1513,20 @@ local function createCompleteGUI()
     Teleport.ZIndex = 2
     Teleport.ScrollBarThickness = 6
 
-    local TeleportListLayoutFrame = Instance.new("Frame")
-    TeleportListLayoutFrame.Name = "TeleportListLayoutFrame"
-    TeleportListLayoutFrame.Parent = Teleport
-    TeleportListLayoutFrame.BackgroundTransparency = 1
-    TeleportListLayoutFrame.Position = UDim2.new(0, 0, 0.022, 0)
-    TeleportListLayoutFrame.Size = UDim2.new(1, 0, 1, 0)
-
-    local ListLayoutTeleport = Instance.new("UIListLayout")
-    ListLayoutTeleport.Name = "ListLayoutTeleport"
-    ListLayoutTeleport.Parent = TeleportListLayoutFrame
-    ListLayoutTeleport.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    ListLayoutTeleport.SortOrder = Enum.SortOrder.LayoutOrder
-    ListLayoutTeleport.Padding = UDim.new(0, 8)
-
     -- TP Player Frame
-    local TPPlayerFrame = Instance.new("Frame")
-    TPPlayerFrame.Name = "TPPlayerFrame"
-    TPPlayerFrame.Parent = TeleportListLayoutFrame
-    TPPlayerFrame.BackgroundColor3 = Color3.fromRGB(47, 47, 47)
-    TPPlayerFrame.BorderSizePixel = 0
-    TPPlayerFrame.Size = UDim2.new(0.898, 0, 0.106, 0)
+    local TPPlayer = Instance.new("Frame")
+    TPPlayer.Name = "TPPlayer"
+    TPPlayer.Parent = Teleport
+    TPPlayer.BackgroundColor3 = Color3.fromRGB(47, 47, 47)
+    TPPlayer.BorderSizePixel = 0
+    TPPlayer.Position = UDim2.new(0.040, 0, 0.042, 0)
+    TPPlayer.Size = UDim2.new(0.898, 0, 0.106, 0)
     
     local tpPlayerCorner = Instance.new("UICorner")
-    tpPlayerCorner.Parent = TPPlayerFrame
+    tpPlayerCorner.Parent = TPPlayer
 
     local TPPlayerText = Instance.new("TextLabel")
-    TPPlayerText.Parent = TPPlayerFrame
+    TPPlayerText.Parent = TPPlayer
     TPPlayerText.BackgroundTransparency = 1
     TPPlayerText.Position = UDim2.new(0.030, 0, 0.216, 0)
     TPPlayerText.Size = UDim2.new(0.415, 0, 0.568, 0)
@@ -1830,160 +1538,96 @@ local function createCompleteGUI()
 
     local TPPlayerButton = Instance.new("TextButton")
     TPPlayerButton.Name = "TPPlayerButton"
-    TPPlayerButton.Parent = TPPlayerFrame
-    TPPlayerButton.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
-    TPPlayerButton.BorderSizePixel = 0
+    TPPlayerButton.Parent = TPPlayer
+    TPPlayerButton.BackgroundTransparency = 1
     TPPlayerButton.Position = UDim2.new(0.756, 0, 0.108, 0)
     TPPlayerButton.Size = UDim2.new(0.207, 0, 0.784, 0)
     TPPlayerButton.ZIndex = 2
     TPPlayerButton.Font = Enum.Font.SourceSansBold
-    TPPlayerButton.Text = "SELECT"
+    TPPlayerButton.Text = "V"
     TPPlayerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     TPPlayerButton.TextScaled = true
+
+    local TPPlayerButtonWarna = Instance.new("Frame")
+    TPPlayerButtonWarna.Parent = TPPlayer
+    TPPlayerButtonWarna.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    TPPlayerButtonWarna.BorderSizePixel = 0
+    TPPlayerButtonWarna.Position = UDim2.new(0.756, 0, 0.135, 0)
+    TPPlayerButtonWarna.Size = UDim2.new(0.204, 0, 0.730, 0)
     
-    local tpPlayerButtonCorner = Instance.new("UICorner")
-    tpPlayerButtonCorner.Parent = TPPlayerButton
+    local tpPlayerWarnaCorner = Instance.new("UICorner")
+    tpPlayerWarnaCorner.Parent = TPPlayerButtonWarna
 
-    -- Player List Dropdown
-    local PlayerListFrame = Instance.new("Frame")
-    PlayerListFrame.Name = "PlayerListFrame"
-    PlayerListFrame.Parent = TeleportListLayoutFrame
-    PlayerListFrame.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
-    PlayerListFrame.BorderSizePixel = 0
-    PlayerListFrame.Size = UDim2.new(0.898, 0, 0, 150)
-    PlayerListFrame.Visible = false
-    
-    local playerListCorner = Instance.new("UICorner")
-    playerListCorner.Parent = PlayerListFrame
-
-    local PlayerListScroll = Instance.new("ScrollingFrame")
-    PlayerListScroll.Name = "PlayerListScroll"
-    PlayerListScroll.Parent = PlayerListFrame
-    PlayerListScroll.Active = true
-    PlayerListScroll.BackgroundTransparency = 1
-    PlayerListScroll.Position = UDim2.new(0, 5, 0, 5)
-    PlayerListScroll.Size = UDim2.new(1, -10, 1, -10)
-    PlayerListScroll.ScrollBarThickness = 4
-    PlayerListScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    local PlayerListLayout = Instance.new("UIListLayout")
-    PlayerListLayout.Parent = PlayerListScroll
-    PlayerListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    PlayerListLayout.Padding = UDim.new(0, 2)
+    -- Player List
+    local ListOfTpPlayer = Instance.new("ScrollingFrame")
+    ListOfTpPlayer.Name = "ListOfTpPlayer"
+    ListOfTpPlayer.Parent = Teleport
+    ListOfTpPlayer.Active = true
+    ListOfTpPlayer.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
+    ListOfTpPlayer.BackgroundTransparency = 0.7
+    ListOfTpPlayer.BorderSizePixel = 0
+    ListOfTpPlayer.Position = UDim2.new(0.585, 0, 0.148, 0)
+    ListOfTpPlayer.Size = UDim2.new(0, 100, 0, 143)
+    ListOfTpPlayer.Visible = false
+    ListOfTpPlayer.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
     -- TP Islands Frame
-    local TPIslandFrame = Instance.new("Frame")
-    TPIslandFrame.Name = "TPIslandFrame"
-    TPIslandFrame.Parent = TeleportListLayoutFrame
-    TPIslandFrame.BackgroundColor3 = Color3.fromRGB(47, 47, 47)
-    TPIslandFrame.BorderSizePixel = 0
-    TPIslandFrame.Size = UDim2.new(0.898, 0, 0.106, 0)
+    local TPIsland = Instance.new("Frame")
+    TPIsland.Name = "TPIsland"
+    TPIsland.Parent = Teleport
+    TPIsland.BackgroundColor3 = Color3.fromRGB(47, 47, 47)
+    TPIsland.BorderSizePixel = 0
+    TPIsland.Position = UDim2.new(0.044, 0, 0.210, 0)
+    TPIsland.Size = UDim2.new(0.898, 0, 0.106, 0)
     
     local tpIslandCorner = Instance.new("UICorner")
-    tpIslandCorner.Parent = TPIslandFrame
+    tpIslandCorner.Parent = TPIsland
 
     local TPIslandText = Instance.new("TextLabel")
-    TPIslandText.Parent = TPIslandFrame
+    TPIslandText.Parent = TPIsland
     TPIslandText.BackgroundTransparency = 1
     TPIslandText.Position = UDim2.new(0.030, 0, 0.216, 0)
     TPIslandText.Size = UDim2.new(0.415, 0, 0.568, 0)
     TPIslandText.Font = Enum.Font.SourceSansBold
-    TPIslandText.Text = "TP ISLAND:"
+    TPIslandText.Text = "TP ISLAND :"
     TPIslandText.TextColor3 = Color3.fromRGB(255, 255, 255)
     TPIslandText.TextScaled = true
     TPIslandText.TextXAlignment = Enum.TextXAlignment.Left
 
     local TPIslandButton = Instance.new("TextButton")
     TPIslandButton.Name = "TPIslandButton"
-    TPIslandButton.Parent = TPIslandFrame
-    TPIslandButton.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-    TPIslandButton.BorderSizePixel = 0
+    TPIslandButton.Parent = TPIsland
+    TPIslandButton.BackgroundTransparency = 1
     TPIslandButton.Position = UDim2.new(0.756, 0, 0.108, 0)
     TPIslandButton.Size = UDim2.new(0.207, 0, 0.784, 0)
     TPIslandButton.ZIndex = 2
     TPIslandButton.Font = Enum.Font.SourceSansBold
-    TPIslandButton.Text = "SELECT"
+    TPIslandButton.Text = "V"
     TPIslandButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     TPIslandButton.TextScaled = true
+
+    local TPIslandButtonWarna = Instance.new("Frame")
+    TPIslandButtonWarna.Parent = TPIsland
+    TPIslandButtonWarna.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    TPIslandButtonWarna.BorderSizePixel = 0
+    TPIslandButtonWarna.Position = UDim2.new(0.756, 0, 0.135, 0)
+    TPIslandButtonWarna.Size = UDim2.new(0.204, 0, 0.730, 0)
     
-    local tpIslandButtonCorner = Instance.new("UICorner")
-    tpIslandButtonCorner.Parent = TPIslandButton
+    local tpIslandWarnaCorner = Instance.new("UICorner")
+    tpIslandWarnaCorner.Parent = TPIslandButtonWarna
 
-    -- Island List Dropdown
-    local IslandListFrame = Instance.new("Frame")
-    IslandListFrame.Name = "IslandListFrame"
-    IslandListFrame.Parent = TeleportListLayoutFrame
-    IslandListFrame.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
-    IslandListFrame.BorderSizePixel = 0
-    IslandListFrame.Size = UDim2.new(0.898, 0, 0, 200)
-    IslandListFrame.Visible = false
-    
-    local islandListCorner = Instance.new("UICorner")
-    islandListCorner.Parent = IslandListFrame
-
-    local IslandListScroll = Instance.new("ScrollingFrame")
-    IslandListScroll.Name = "IslandListScroll"
-    IslandListScroll.Parent = IslandListFrame
-    IslandListScroll.Active = true
-    IslandListScroll.BackgroundTransparency = 1
-    IslandListScroll.Position = UDim2.new(0, 5, 0, 5)
-    IslandListScroll.Size = UDim2.new(1, -10, 1, -10)
-    IslandListScroll.ScrollBarThickness = 4
-    IslandListScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    local IslandListLayout = Instance.new("UIListLayout")
-    IslandListLayout.Parent = IslandListScroll
-    IslandListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    IslandListLayout.Padding = UDim.new(0, 2)
-
-    -- Create island buttons
-    local islands = {
-        {name = "🏝️ Starter Island", folder = "StarterIsland"},
-        {name = "🌋 Volcano Island", folder = "VolcanoIsland"},
-        {name = "❄️ Frost Island", folder = "FrostIsland"},
-        {name = "🏜️ Desert Island", folder = "DesertIsland"},
-        {name = "🌴 Tropical Island", folder = "TropicalIsland"},
-        {name = "🎪 Carnival Island", folder = "CarnivalIsland"},
-        {name = "🏭 Industrial Island", folder = "IndustrialIsland"},
-        {name = "🌸 Cherry Blossom Island", folder = "CherryBlossomIsland"},
-        {name = "🎃 Spooky Island", folder = "SpookyIsland"},
-        {name = "🎄 Christmas Island", folder = "ChristmasIsland"}
-    }
-
-    for i, island in ipairs(islands) do
-        local IslandButton = Instance.new("TextButton")
-        IslandButton.Name = island.folder
-        IslandButton.Parent = IslandListScroll
-        IslandButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        IslandButton.BorderSizePixel = 0
-        IslandButton.Size = UDim2.new(1, -10, 0, 35)
-        IslandButton.Font = Enum.Font.SourceSansBold
-        IslandButton.Text = island.name
-        IslandButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        IslandButton.TextScaled = true
-        IslandButton.LayoutOrder = i
-        
-        local islandButtonCorner = Instance.new("UICorner")
-        islandButtonCorner.Parent = IslandButton
-        
-        -- Island button connection
-        connections[#connections + 1] = IslandButton.MouseButton1Click:Connect(function()
-            safeCall(function()
-                local destination = tpFolder:FindFirstChild(island.folder)
-                if destination and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    player.Character.HumanoidRootPart.CFrame = destination.CFrame + Vector3.new(0, 5, 0)
-                    createNotification("🚀 Teleported to " .. island.name, Color3.fromRGB(0, 255, 0))
-                    IslandListFrame.Visible = false
-                else
-                    createNotification("❌ Teleport failed!", Color3.fromRGB(255, 0, 0))
-                end
-            end)
-        end)
-    end
-    TPPlayerButtonWarna.BorderSizePixel = 0
-    TPPlayerButtonWarna.Position = UDim2.new(0.756, 0, 0.135, 0)
-    TPPlayerButtonWarna.Size = UDim2.new(0.204, 0, 0.730, 0)
-
+    -- Island List
+    local ListOfTPIsland = Instance.new("ScrollingFrame")
+    ListOfTPIsland.Name = "ListOfTPIsland"
+    ListOfTPIsland.Parent = Teleport
+    ListOfTPIsland.Active = true
+    ListOfTPIsland.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
+    ListOfTPIsland.BackgroundTransparency = 0.7
+    ListOfTPIsland.BorderSizePixel = 0
+    ListOfTPIsland.Position = UDim2.new(0.591, 0, 0.316, 0)
+    ListOfTPIsland.Size = UDim2.new(0, 100, 0, 143)
+    ListOfTPIsland.Visible = false
+    ListOfTPIsland.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
     -- ===============================================================
     --                       SPAWN BOAT FRAME
@@ -2514,23 +2158,6 @@ local function createCompleteGUI()
         end
     end)
 
-    -- Minimize button
-    connections[#connections + 1] = MinimizeBtn.MouseButton1Click:Connect(function()
-        isMinimized = not isMinimized
-        
-        if isMinimized then
-            -- Hide entire GUI when minimized
-            FrameUtama.Visible = false
-            isHidden = true -- Also set hidden state to true
-            createNotification("📦 GUI Hidden - Use floating button to restore", Color3.fromRGB(255, 165, 0))
-        else
-            -- Show entire GUI when restored
-            FrameUtama.Visible = true
-            isHidden = false -- Reset hidden state
-            createNotification("📦 GUI Restored", Color3.fromRGB(0, 255, 0))
-        end
-    end)
-
     -- Auto Fish button
     connections[#connections + 1] = AutoFishButton.MouseButton1Click:Connect(function()
         if Settings.AutoFishingAFK2 then
@@ -2797,14 +2424,14 @@ local function createCompleteGUI()
 
     -- TP Player button
     connections[#connections + 1] = TPPlayerButton.MouseButton1Click:Connect(function()
-        PlayerListFrame.Visible = not PlayerListFrame.Visible
-        IslandListFrame.Visible = false
+        ListOfTpPlayer.Visible = not ListOfTpPlayer.Visible
+        ListOfTPIsland.Visible = false
     end)
 
     -- TP Island button
     connections[#connections + 1] = TPIslandButton.MouseButton1Click:Connect(function()
-        IslandListFrame.Visible = not IslandListFrame.Visible
-        PlayerListFrame.Visible = false
+        ListOfTPIsland.Visible = not ListOfTPIsland.Visible
+        ListOfTpPlayer.Visible = false
     end)
 
     -- Despawn boat button
@@ -2901,15 +2528,12 @@ local function createCompleteGUI()
 
     -- Page switching function
     local function showPanel(pageName)
-        if isMinimized then return end -- Don't switch panels when minimized
-        
         MainFrame.Visible = false
         PlayerFrame.Visible = false
         Teleport.Visible = false
         SpawnBoatFrame.Visible = false
         SecurityFrame.Visible = false
         AdvancedFrame.Visible = false
-        AnalyticsFrame.Visible = false
         
         if pageName == "Main" then
             MainFrame.Visible = true
@@ -2923,8 +2547,6 @@ local function createCompleteGUI()
             SecurityFrame.Visible = true
         elseif pageName == "Advanced" then
             AdvancedFrame.Visible = true
-        elseif pageName == "Analytics" then
-            AnalyticsFrame.Visible = true
         end
         
         Tittle.Text = pageName:upper()
@@ -2953,10 +2575,6 @@ local function createCompleteGUI()
 
     connections[#connections + 1] = ADVANCED.MouseButton1Click:Connect(function()
         showPanel("Advanced")
-    end)
-
-    connections[#connections + 1] = ANALYTICS.MouseButton1Click:Connect(function()
-        showPanel("Analytics")
     end)
 
     -- ===============================================================
@@ -2996,40 +2614,32 @@ local function createCompleteGUI()
     local function updatePlayerList()
         safeCall(function()
             -- Clear existing buttons
-            for _, child in pairs(PlayerListScroll:GetChildren()) do
+            for _, child in pairs(ListOfTpPlayer:GetChildren()) do
                 if child:IsA("TextButton") then
                     child:Destroy()
                 end
             end
             
             -- Add current players
-            local index = 1
+            local index = 0
             for _, targetPlayer in pairs(Players:GetPlayers()) do
                 if targetPlayer ~= player and targetPlayer.Character then
                     local btn = Instance.new("TextButton")
                     btn.Name = targetPlayer.Name
-                    btn.Parent = PlayerListScroll
+                    btn.Parent = ListOfTpPlayer
                     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-                    btn.BorderSizePixel = 0
-                    btn.Text = "👤 " .. targetPlayer.Name
-                    btn.Size = UDim2.new(1, -10, 0, 35)
+                    btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                    btn.Text = targetPlayer.Name
+                    btn.Size = UDim2.new(1, 0, 0.1, 0)
+                    btn.Position = UDim2.new(0, 0, (0.1 + 0.02) * index, 0)
                     btn.TextScaled = true
-                    btn.Font = Enum.Font.SourceSansBold
-                    btn.LayoutOrder = index
-                    
-                    local btnCorner = Instance.new("UICorner")
-                    btnCorner.Parent = btn
+                    btn.Font = Enum.Font.GothamBold
                     
                     connections[#connections + 1] = btn.MouseButton1Click:Connect(function()
                         if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
                             safeCall(function()
-                                player.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0)
-                                createNotification("🚀 Teleported to " .. targetPlayer.Name, Color3.fromRGB(0, 255, 0))
-                                PlayerListFrame.Visible = false
+                                player.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
                             end)
-                        else
-                            createNotification("❌ Player not found!", Color3.fromRGB(255, 0, 0))
                         end
                     end)
                     
@@ -3040,242 +2650,39 @@ local function createCompleteGUI()
     end
 
     -- ===============================================================
-    --                        ANALYTICS FRAME
-    -- ===============================================================
-    local AnalyticsFrame = Instance.new("ScrollingFrame")
-    AnalyticsFrame.Name = "AnalyticsFrame"
-    AnalyticsFrame.Parent = FrameUtama
-    AnalyticsFrame.Active = true
-    AnalyticsFrame.BackgroundTransparency = 1
-    AnalyticsFrame.Position = UDim2.new(0.376, 0, 0.147, 0)
-    AnalyticsFrame.Size = UDim2.new(0.624, 0, 0.853, 0)
-    AnalyticsFrame.Visible = false
-    AnalyticsFrame.ZIndex = 2
-    AnalyticsFrame.ScrollBarThickness = 6
-    AnalyticsFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    local AnalyticsListLayoutFrame = Instance.new("Frame")
-    AnalyticsListLayoutFrame.Name = "AnalyticsListLayoutFrame"
-    AnalyticsListLayoutFrame.Parent = AnalyticsFrame
-    AnalyticsListLayoutFrame.BackgroundTransparency = 1
-    AnalyticsListLayoutFrame.Position = UDim2.new(0, 0, 0.022, 0)
-    AnalyticsListLayoutFrame.Size = UDim2.new(1, 0, 1, 0)
-
-    local ListLayoutAnalytics = Instance.new("UIListLayout")
-    ListLayoutAnalytics.Name = "ListLayoutAnalytics"
-    ListLayoutAnalytics.Parent = AnalyticsListLayoutFrame
-    ListLayoutAnalytics.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    ListLayoutAnalytics.SortOrder = Enum.SortOrder.LayoutOrder
-    ListLayoutAnalytics.Padding = UDim.new(0, 8)
-
-    -- Helper function to create analytics labels
-    local function createAnalyticsLabel(parent, text, color, layoutOrder)
-        local label = Instance.new("TextLabel")
-        label.Parent = parent
-        label.BackgroundTransparency = 1
-        label.Font = Enum.Font.SourceSans
-        label.Text = text
-        label.TextColor3 = color or Color3.fromRGB(255, 255, 255)
-        label.TextScaled = true
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        if layoutOrder then label.LayoutOrder = layoutOrder end
-        return label
-    end
-
-    -- ===== SESSION OVERVIEW SECTION =====
-    local SessionOverview = Instance.new("Frame")
-    SessionOverview.Name = "SessionOverview"
-    SessionOverview.Parent = AnalyticsListLayoutFrame
-    SessionOverview.BackgroundColor3 = Color3.fromRGB(47, 47, 47)
-    SessionOverview.BorderSizePixel = 0
-    SessionOverview.Size = UDim2.new(0.94, 0, 0, 120)
-    SessionOverview.LayoutOrder = 1
-    
-    Instance.new("UICorner").Parent = SessionOverview
-
-    createAnalyticsLabel(SessionOverview, "📊 SESSION OVERVIEW", Color3.fromRGB(100, 200, 255)).Position = UDim2.new(0.03, 0, 0.1, 0)
-    createAnalyticsLabel(SessionOverview, "📊 SESSION OVERVIEW", Color3.fromRGB(100, 200, 255)).Size = UDim2.new(0.94, 0, 0.25, 0)
-    createAnalyticsLabel(SessionOverview, "📊 SESSION OVERVIEW", Color3.fromRGB(100, 200, 255)).Font = Enum.Font.SourceSansBold
-
-    local SessionStatsGrid = Instance.new("Frame")
-    SessionStatsGrid.Parent = SessionOverview
-    SessionStatsGrid.BackgroundTransparency = 1
-    SessionStatsGrid.Position = UDim2.new(0.03, 0, 0.35, 0)
-    SessionStatsGrid.Size = UDim2.new(0.94, 0, 0.6, 0)
-
-    local SessionGridLayout = Instance.new("UIGridLayout")
-    SessionGridLayout.Parent = SessionStatsGrid
-    SessionGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
-    SessionGridLayout.CellSize = UDim2.new(0.48, 0, 0.45, 0)
-    SessionGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    -- Create session stats using helper function
-    local sessionStats = {"🎣 Fish Caught: 0", "💰 Money Earned: $0", "⏱️ Session Time: 0m", "📈 Efficiency: 0%"}
-    for i, text in ipairs(sessionStats) do
-        createAnalyticsLabel(SessionStatsGrid, text, nil, i)
-    end
-
-    -- ===== REAL-TIME PERFORMANCE SECTION =====
-    local PerformanceSection = Instance.new("Frame")
-    PerformanceSection.Name = "PerformanceSection"
-    PerformanceSection.Parent = AnalyticsListLayoutFrame
-    PerformanceSection.BackgroundColor3 = Color3.fromRGB(47, 47, 47)
-    PerformanceSection.BorderSizePixel = 0
-    PerformanceSection.Size = UDim2.new(0.94, 0, 0, 100)
-    PerformanceSection.LayoutOrder = 2
-    
-    Instance.new("UICorner").Parent = PerformanceSection
-
-    local perfTitle = createAnalyticsLabel(PerformanceSection, "⚡ REAL-TIME PERFORMANCE", Color3.fromRGB(255, 100, 100))
-    perfTitle.Position = UDim2.new(0.03, 0, 0.1, 0)
-    perfTitle.Size = UDim2.new(0.94, 0, 0.3, 0)
-    perfTitle.Font = Enum.Font.SourceSansBold
-
-    local PerformanceGrid = Instance.new("Frame")
-    PerformanceGrid.Parent = PerformanceSection
-    PerformanceGrid.BackgroundTransparency = 1
-    PerformanceGrid.Position = UDim2.new(0.03, 0, 0.4, 0)
-    PerformanceGrid.Size = UDim2.new(0.94, 0, 0.55, 0)
-
-    local PerfGridLayout = Instance.new("UIGridLayout")
-    PerfGridLayout.Parent = PerformanceGrid
-    PerfGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
-    PerfGridLayout.CellSize = UDim2.new(0.23, 0, 0.8, 0)
-    PerfGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    local perfStats = {"📶 FPS: 60", "🌐 Ping: 50ms", "🖥️ CPU: 25%", "💾 RAM: 400MB"}
-    for i, text in ipairs(perfStats) do
-        local label = createAnalyticsLabel(PerformanceGrid, text, nil, i)
-        label.TextXAlignment = Enum.TextXAlignment.Center
-    end
-
-    -- ===== FISH BREAKDOWN SECTION =====
-    local FishBreakdown = Instance.new("Frame")
-    FishBreakdown.Name = "FishBreakdown"
-    FishBreakdown.Parent = AnalyticsListLayoutFrame
-    FishBreakdown.BackgroundColor3 = Color3.fromRGB(47, 47, 47)
-    FishBreakdown.BorderSizePixel = 0
-    FishBreakdown.Size = UDim2.new(0.94, 0, 0, 140)
-    FishBreakdown.LayoutOrder = 3
-    
-    Instance.new("UICorner").Parent = FishBreakdown
-
-    local fishTitle = createAnalyticsLabel(FishBreakdown, "🐟 FISH RARITY BREAKDOWN", Color3.fromRGB(100, 255, 100))
-    fishTitle.Position = UDim2.new(0.03, 0, 0.1, 0)
-    fishTitle.Size = UDim2.new(0.94, 0, 0.2, 0)
-    fishTitle.Font = Enum.Font.SourceSansBold
-
-    local FishGrid = Instance.new("Frame")
-    FishGrid.Parent = FishBreakdown
-    FishGrid.BackgroundTransparency = 1
-    FishGrid.Position = UDim2.new(0.03, 0, 0.3, 0)
-    FishGrid.Size = UDim2.new(0.94, 0, 0.65, 0)
-
-    local FishGridLayout = Instance.new("UIGridLayout")
-    FishGridLayout.Parent = FishGrid
-    FishGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
-    FishGridLayout.CellSize = UDim2.new(0.18, 0, 0.45, 0)
-    FishGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    local fishData = {
-        {"⚪ Common: 0", Color3.fromRGB(255, 255, 255)},
-        {"🟢 Uncommon: 0", Color3.fromRGB(0, 255, 0)},
-        {"🟣 Rare: 0", Color3.fromRGB(128, 0, 255)},
-        {"🟡 Legendary: 0", Color3.fromRGB(255, 215, 0)},
-        {"🟥 Mythical: 0", Color3.fromRGB(255, 0, 255)}
-    }
-
-    for i, data in ipairs(fishData) do
-        local label = createAnalyticsLabel(FishGrid, data[1], data[2], i)
-        label.TextXAlignment = Enum.TextXAlignment.Center
-        label.Font = Enum.Font.SourceSansBold
-    end
-
-    -- ===== PREDICTIONS & GOALS SECTIONS =====
-    local PredictionsSection = Instance.new("Frame")
-    PredictionsSection.Name = "PredictionsSection"
-    PredictionsSection.Parent = AnalyticsListLayoutFrame
-    PredictionsSection.BackgroundColor3 = Color3.fromRGB(47, 47, 47)
-    PredictionsSection.BorderSizePixel = 0
-    PredictionsSection.Size = UDim2.new(0.94, 0, 0, 120)
-    PredictionsSection.LayoutOrder = 4
-    
-    Instance.new("UICorner").Parent = PredictionsSection
-
-    local predTitle = createAnalyticsLabel(PredictionsSection, "🔮 AI PREDICTIONS", Color3.fromRGB(255, 165, 0))
-    predTitle.Position = UDim2.new(0.03, 0, 0.1, 0)
-    predTitle.Size = UDim2.new(0.94, 0, 0.25, 0)
-    predTitle.Font = Enum.Font.SourceSansBold
-
-    local PredictionsGrid = Instance.new("Frame")
-    PredictionsGrid.Parent = PredictionsSection
-    PredictionsGrid.BackgroundTransparency = 1
-    PredictionsGrid.Position = UDim2.new(0.03, 0, 0.35, 0)
-    PredictionsGrid.Size = UDim2.new(0.94, 0, 0.6, 0)
-
-    local PredGridLayout = Instance.new("UIGridLayout")
-    PredGridLayout.Parent = PredictionsGrid
-    PredGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
-    PredGridLayout.CellSize = UDim2.new(0.48, 0, 0.45, 0)
-    PredGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    local predictions = {"🎯 Next Rare: 5 fish", "⏰ Best Time: 20:00-21:00", "📍 Best Spot: Deep Ocean", "🍀 Luck Status: Excellent"}
-    for i, text in ipairs(predictions) do
-        createAnalyticsLabel(PredictionsGrid, text, nil, i)
-    end
-
-    -- ===== DAILY GOALS SECTION =====
-    local DailyGoals = Instance.new("Frame")
-    DailyGoals.Name = "DailyGoals"
-    DailyGoals.Parent = AnalyticsListLayoutFrame
-    DailyGoals.BackgroundColor3 = Color3.fromRGB(47, 47, 47)
-    DailyGoals.BorderSizePixel = 0
-    DailyGoals.Size = UDim2.new(0.94, 0, 0, 100)
-    DailyGoals.LayoutOrder = 5
-    
-    Instance.new("UICorner").Parent = DailyGoals
-
-    local goalsTitle = createAnalyticsLabel(DailyGoals, "🎯 DAILY GOALS", Color3.fromRGB(255, 255, 100))
-    goalsTitle.Position = UDim2.new(0.03, 0, 0.1, 0)
-    goalsTitle.Size = UDim2.new(0.94, 0, 0.3, 0)
-    goalsTitle.Font = Enum.Font.SourceSansBold
-
-    local GoalsGrid = Instance.new("Frame")
-    GoalsGrid.Parent = DailyGoals
-    GoalsGrid.BackgroundTransparency = 1
-    GoalsGrid.Position = UDim2.new(0.03, 0, 0.4, 0)
-    GoalsGrid.Size = UDim2.new(0.94, 0, 0.55, 0)
-
-    local GoalsGridLayout = Instance.new("UIGridLayout")
-    GoalsGridLayout.Parent = GoalsGrid
-    GoalsGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
-    GoalsGridLayout.CellSize = UDim2.new(0.48, 0, 0.8, 0)
-    GoalsGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    local goals = {"🎣 Fish Goal: 0/100", "💰 Money Goal: $0/$5000"}
-    for i, text in ipairs(goals) do
-        createAnalyticsLabel(GoalsGrid, text, nil, i)
-    end
-
-    -- ===============================================================
     --                         FLOATING BUTTON
     -- ===============================================================
     
-    -- Create floating toggle button
+    -- Create enhanced floating toggle button
     local FloatingButton = Instance.new("Frame")
     FloatingButton.Name = "FloatingButton"
     FloatingButton.Parent = ZayrosFISHIT
-    FloatingButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    FloatingButton.BackgroundTransparency = 0.1
+    FloatingButton.BackgroundColor3 = Color3.fromRGB(0, 162, 255)
+    FloatingButton.BackgroundTransparency = 0.2
     FloatingButton.BorderSizePixel = 0
-    FloatingButton.Position = UDim2.new(0, 20, 0.5, -25)
-    FloatingButton.Size = UDim2.new(0, 50, 0, 50)
+    FloatingButton.Position = UDim2.new(0, 20, 0.5, -30)
+    FloatingButton.Size = UDim2.new(0, 60, 0, 60)
     FloatingButton.ZIndex = 100
     FloatingButton.Active = true
     
     local floatingCorner = Instance.new("UICorner")
-    floatingCorner.CornerRadius = UDim.new(0, 25)
+    floatingCorner.CornerRadius = UDim.new(0, 30)
     floatingCorner.Parent = FloatingButton
+    
+    -- Add shadow effect
+    local FloatingShadow = Instance.new("Frame")
+    FloatingShadow.Name = "FloatingShadow"
+    FloatingShadow.Parent = ZayrosFISHIT
+    FloatingShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    FloatingShadow.BackgroundTransparency = 0.7
+    FloatingShadow.BorderSizePixel = 0
+    FloatingShadow.Position = UDim2.new(0, 22, 0.5, -28)
+    FloatingShadow.Size = UDim2.new(0, 60, 0, 60)
+    FloatingShadow.ZIndex = 99
+    
+    local shadowCorner = Instance.new("UICorner")
+    shadowCorner.CornerRadius = UDim.new(0, 30)
+    shadowCorner.Parent = FloatingShadow
     
     local FloatingButtonText = Instance.new("TextLabel")
     FloatingButtonText.Name = "FloatingButtonText"
@@ -3288,6 +2695,14 @@ local function createCompleteGUI()
     FloatingButtonText.TextScaled = true
     FloatingButtonText.ZIndex = 101
     
+    -- Add pulse animation
+    local pulseAnimation = TweenService:Create(
+        FloatingButton,
+        TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true),
+        {BackgroundTransparency = 0.4}
+    )
+    pulseAnimation:Play()
+    
     local FloatingButtonClick = Instance.new("TextButton")
     FloatingButtonClick.Name = "FloatingButtonClick"
     FloatingButtonClick.Parent = FloatingButton
@@ -3296,16 +2711,45 @@ local function createCompleteGUI()
     FloatingButtonClick.Text = ""
     FloatingButtonClick.ZIndex = 102
     
-    -- Make floating button draggable
+    -- Add tooltip for floating button
+    local FloatingTooltip = Instance.new("Frame")
+    FloatingTooltip.Name = "FloatingTooltip"
+    FloatingTooltip.Parent = ZayrosFISHIT
+    FloatingTooltip.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    FloatingTooltip.BackgroundTransparency = 0.2
+    FloatingTooltip.BorderSizePixel = 0
+    FloatingTooltip.Position = UDim2.new(0, 90, 0.5, -15)
+    FloatingTooltip.Size = UDim2.new(0, 120, 0, 30)
+    FloatingTooltip.ZIndex = 105
+    FloatingTooltip.Visible = false
+    
+    local tooltipCorner = Instance.new("UICorner")
+    tooltipCorner.CornerRadius = UDim.new(0, 5)
+    tooltipCorner.Parent = FloatingTooltip
+    
+    local FloatingTooltipText = Instance.new("TextLabel")
+    FloatingTooltipText.Name = "FloatingTooltipText"
+    FloatingTooltipText.Parent = FloatingTooltip
+    FloatingTooltipText.BackgroundTransparency = 1
+    FloatingTooltipText.Size = UDim2.new(1, 0, 1, 0)
+    FloatingTooltipText.Font = Enum.Font.SourceSansBold
+    FloatingTooltipText.Text = "Click to toggle GUI"
+    FloatingTooltipText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    FloatingTooltipText.TextScaled = true
+    FloatingTooltipText.ZIndex = 106
+    
+    -- Make floating button draggable with shadow
     local floatingDragging = false
     local floatingDragStart = nil
     local floatingStartPos = nil
+    local shadowStartPos = nil
     
     connections[#connections + 1] = FloatingButton.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             floatingDragging = true
             floatingDragStart = input.Position
             floatingStartPos = FloatingButton.Position
+            shadowStartPos = FloatingShadow.Position
         end
     end)
     
@@ -3318,6 +2762,13 @@ local function createCompleteGUI()
                 floatingStartPos.Y.Scale,
                 floatingStartPos.Y.Offset + delta.Y
             )
+            -- Move shadow with button
+            FloatingShadow.Position = UDim2.new(
+                shadowStartPos.X.Scale,
+                shadowStartPos.X.Offset + delta.X,
+                shadowStartPos.Y.Scale,
+                shadowStartPos.Y.Offset + delta.Y
+            )
         end
     end)
     
@@ -3327,47 +2778,58 @@ local function createCompleteGUI()
         end
     end)
     
-    -- Floating button toggle functionality
+    -- Enhanced floating button toggle functionality
     connections[#connections + 1] = FloatingButtonClick.MouseButton1Click:Connect(function()
         isHidden = not isHidden
         FrameUtama.Visible = not isHidden
         
-        -- Also update minimize state when using floating button
-        if not isHidden then
-            isMinimized = false -- Reset minimize state when showing GUI
-        end
-        
         if isHidden then
-            FloatingButtonText.Text = "🌊"
-            createNotification("📦 GUI Hidden", Color3.fromRGB(255, 165, 0))
+            FloatingButtonText.Text = "👁️"
+            FloatingButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+            createNotification("📦 GUI Hidden - Click to show", Color3.fromRGB(255, 165, 0))
         else
-            FloatingButtonText.Text = "🌊"
+            FloatingButtonText.Text = "�"
+            FloatingButton.BackgroundColor3 = Color3.fromRGB(0, 162, 255)
             createNotification("📦 GUI Shown", Color3.fromRGB(0, 255, 0))
         end
     end)
     
-    -- Floating button hover effects
+    -- Enhanced floating button hover effects with tooltip
     connections[#connections + 1] = FloatingButton.MouseEnter:Connect(function()
         FloatingButton:TweenSize(
-            UDim2.new(0, 55, 0, 55),
+            UDim2.new(0, 70, 0, 70),
             "Out", "Quad", 0.2, true
         )
-        FloatingButton.BackgroundTransparency = 0.05
+        FloatingShadow:TweenSize(
+            UDim2.new(0, 70, 0, 70),
+            "Out", "Quad", 0.2, true
+        )
+        FloatingButton.BackgroundTransparency = 0.1
+        FloatingTooltip.Visible = true
+        FloatingTooltip:TweenPosition(
+            UDim2.new(0, 95, 0.5, -15),
+            "Out", "Quad", 0.2, true
+        )
     end)
     
     connections[#connections + 1] = FloatingButton.MouseLeave:Connect(function()
         FloatingButton:TweenSize(
-            UDim2.new(0, 50, 0, 50),
+            UDim2.new(0, 60, 0, 60),
             "Out", "Quad", 0.2, true
         )
-        FloatingButton.BackgroundTransparency = 0.1
+        FloatingShadow:TweenSize(
+            UDim2.new(0, 60, 0, 60),
+            "Out", "Quad", 0.2, true
+        )
+        FloatingButton.BackgroundTransparency = 0.2
+        FloatingTooltip.Visible = false
     end)
 
     -- ===============================================================
     --                         ENHANCED FEATURES
     -- ===============================================================
     
-    -- Hotkey for hiding GUI
+    -- Hotkey for hiding GUI (consistent with floating button)
     connections[#connections + 1] = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         
@@ -3375,17 +2837,14 @@ local function createCompleteGUI()
             isHidden = not isHidden
             FrameUtama.Visible = not isHidden
             
-            -- Also reset minimize state when using hotkey
-            if not isHidden then
-                isMinimized = false
-            end
-            
             if isHidden then
                 FloatingButtonText.Text = "👁️"
-                createNotification("📦 GUI Hidden (F9)", Color3.fromRGB(255, 165, 0))
+                FloatingButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+                createNotification("📦 GUI Hidden - Press F9 or click floating button", Color3.fromRGB(255, 165, 0))
             else
                 FloatingButtonText.Text = "🎣"
-                createNotification("📦 GUI Shown (F9)", Color3.fromRGB(0, 255, 0))
+                FloatingButton.BackgroundColor3 = Color3.fromRGB(0, 162, 255)
+                createNotification("📦 GUI Shown", Color3.fromRGB(0, 255, 0))
             end
         end
     end)
@@ -3476,14 +2935,15 @@ local function createCompleteGUI()
     updatePlayerList()
 
     print("✅ " .. CONFIG.GUI_TITLE .. " V2.0 loaded successfully!")
-    print("📌 Press F9 to hide/show GUI")
+    print("🎯 FLOATING BUTTON: Click the blue floating button to hide/show GUI")
+    print("📌 Hotkey: Press F9 to hide/show GUI")
     print("🎣 Auto Fish with enhanced safety features")
     print("🚤 Multiple boat spawning options")
     print("📍 Player & Island teleportation")
     print("🔧 New Features: Auto Sell, Walk Speed, ESP, Notifications")
     print("🛡️ Safety Features: Anti-AFK, Health Check, Error Handling")
     print("🔒 Security Features: Admin Detection, Proximity Alerts, Auto Hide")
-    print("📦 GUI Features: Minimize/Restore, Draggable Interface")
+    print("📦 GUI Features: Enhanced Floating Button, Draggable Interface")
     print("🍀 Advanced Features: Luck System, Weather Effects, Smart Fishing")
     print("📊 Analytics: Fish Rarity Tracking, Money Counter, Performance Stats")
 
@@ -3501,125 +2961,6 @@ end
 
 -- Start the script
 initialize()
-
--- Start real-time analytics tracking
-updateRealTimeStats()
-
--- Update Analytics Display
-local function updateAnalyticsDisplay()
-    task.spawn(function()
-        while true do
-            local gui = player.PlayerGui:FindFirstChild(CONFIG.GUI_NAME)
-            if gui and gui:FindFirstChild("FrameUtama") and gui.FrameUtama:FindFirstChild("AnalyticsFrame") then
-                local analyticsFrame = gui.FrameUtama.AnalyticsFrame
-                
-                -- Update session overview
-                local sessionStats = analyticsFrame.AnalyticsListLayoutFrame.SessionOverview.SessionStatsGrid:GetChildren()
-                for _, child in ipairs(sessionStats) do
-                    if child:IsA("TextLabel") then
-                        if child.LayoutOrder == 1 then
-                            child.Text = "🎣 Fish Caught: " .. Stats.fishCaught
-                        elseif child.LayoutOrder == 2 then
-                            child.Text = "💰 Money Earned: $" .. math.floor(Stats.moneyEarned)
-                        elseif child.LayoutOrder == 3 then
-                            local sessionTime = (tick() - Stats.sessionStartTime) / 60
-                            child.Text = "⏱️ Session Time: " .. string.format("%.1fm", sessionTime)
-                        elseif child.LayoutOrder == 4 then
-                            child.Text = "📈 Efficiency: " .. calculateEfficiencyScore() .. "%"
-                        end
-                    end
-                end
-                
-                -- Update performance stats
-                local perfStats = analyticsFrame.AnalyticsListLayoutFrame.PerformanceSection.PerformanceGrid:GetChildren()
-                for _, child in ipairs(perfStats) do
-                    if child:IsA("TextLabel") then
-                        if child.LayoutOrder == 1 then
-                            child.Text = "📶 FPS: " .. Stats.performance.fps
-                        elseif child.LayoutOrder == 2 then
-                            child.Text = "🌐 Ping: " .. Stats.performance.ping .. "ms"
-                        elseif child.LayoutOrder == 3 then
-                            child.Text = "🖥️ CPU: " .. Stats.performance.cpu .. "%"
-                        elseif child.LayoutOrder == 4 then
-                            child.Text = "💾 RAM: " .. Stats.performance.memory .. "MB"
-                        end
-                    end
-                end
-                
-                -- Update fish breakdown
-                local fishStats = analyticsFrame.AnalyticsListLayoutFrame.FishBreakdown.FishGrid:GetChildren()
-                for _, child in ipairs(fishStats) do
-                    if child:IsA("TextLabel") then
-                        if child.LayoutOrder == 1 then
-                            child.Text = "⚪ Common: " .. Stats.fishTypes.common
-                        elseif child.LayoutOrder == 2 then
-                            child.Text = "🟢 Uncommon: " .. Stats.fishTypes.uncommon
-                        elseif child.LayoutOrder == 3 then
-                            child.Text = "🟣 Rare: " .. Stats.fishTypes.rare
-                        elseif child.LayoutOrder == 4 then
-                            child.Text = "🟡 Legendary: " .. Stats.fishTypes.legendary
-                        elseif child.LayoutOrder == 5 then
-                            child.Text = "🟥 Mythical: " .. Stats.fishTypes.mythical
-                        end
-                    end
-                end
-                
-                -- Update predictions
-                local predStats = analyticsFrame.AnalyticsListLayoutFrame.PredictionsSection.PredictionsGrid:GetChildren()
-                for _, child in ipairs(predStats) do
-                    if child:IsA("TextLabel") then
-                        if child.LayoutOrder == 1 then
-                            child.Text = "🎯 Next Rare: " .. Analytics.predictions.nextRareFish .. " fish"
-                        elseif child.LayoutOrder == 2 then
-                            child.Text = "⏰ Best Time: " .. Analytics.predictions.optimalFishingTime
-                        elseif child.LayoutOrder == 3 then
-                            child.Text = "📍 Best Spot: " .. Analytics.predictions.recommendedLocation
-                        elseif child.LayoutOrder == 4 then
-                            child.Text = Analytics.predictions.luckBoostSuggestion
-                        end
-                    end
-                end
-                
-                -- Update daily goals
-                local goalStats = analyticsFrame.AnalyticsListLayoutFrame.DailyGoals.GoalsGrid:GetChildren()
-                for _, child in ipairs(goalStats) do
-                    if child:IsA("TextLabel") then
-                        if child.LayoutOrder == 1 then
-                            local progress = Stats.dailyGoals.fishCaught
-                            local target = Stats.dailyGoals.fishTarget
-                            child.Text = "🎣 Fish Goal: " .. progress .. "/" .. target
-                            -- Change color based on progress
-                            if progress >= target then
-                                child.TextColor3 = Color3.fromRGB(0, 255, 0) -- Green when completed
-                            elseif progress >= target * 0.8 then
-                                child.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow when close
-                            else
-                                child.TextColor3 = Color3.fromRGB(255, 255, 255) -- White when far
-                            end
-                        elseif child.LayoutOrder == 2 then
-                            local progress = Stats.dailyGoals.moneyEarned
-                            local target = Stats.dailyGoals.moneyTarget
-                            child.Text = "💰 Money Goal: $" .. math.floor(progress) .. "/$" .. target
-                            -- Change color based on progress
-                            if progress >= target then
-                                child.TextColor3 = Color3.fromRGB(0, 255, 0)
-                            elseif progress >= target * 0.8 then
-                                child.TextColor3 = Color3.fromRGB(255, 255, 0)
-                            else
-                                child.TextColor3 = Color3.fromRGB(255, 255, 255)
-                            end
-                        end
-                    end
-                end
-            end
-            
-            task.wait(1) -- Update every second
-        end
-    end)
-end
-
--- Start analytics display updates
-updateAnalyticsDisplay()
 
 -- Handle player leaving
 connections[#connections + 1] = Players.PlayerRemoving:Connect(function(leavingPlayer)
