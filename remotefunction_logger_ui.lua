@@ -1,73 +1,76 @@
--- RemoteFunction Logger + UI
-local logFile = "remotefunction_log.txt"
+-- RemoteFunction Logger UI Aman (Tidak Error OnClientInvoke)
+-- Buat ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local Scroll = Instance.new("ScrollingFrame")
+local Template = Instance.new("TextLabel")
 
-local function writeLog(text)
-    writefile(logFile, (isfile(logFile) and readfile(logFile) or "") .. text .. "\n")
+ScreenGui.Name = "RemoteFunctionLogger"
+ScreenGui.Parent = game.CoreGui
+
+Frame.Size = UDim2.new(0, 400, 0, 300)
+Frame.Position = UDim2.new(0.5, -200, 0.5, -150)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.Parent = ScreenGui
+
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Title.Text = "RemoteFunction Logger"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Parent = Frame
+
+Scroll.Size = UDim2.new(1, 0, 1, -30)
+Scroll.Position = UDim2.new(0, 0, 0, 30)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+Scroll.BackgroundTransparency = 1
+Scroll.Parent = Frame
+
+Template.Size = UDim2.new(1, 0, 0, 20)
+Template.BackgroundTransparency = 1
+Template.TextColor3 = Color3.fromRGB(255, 255, 255)
+Template.TextXAlignment = Enum.TextXAlignment.Left
+Template.Text = ""
+Template.Visible = false
+Template.Parent = Scroll
+
+-- Fungsi untuk tambah log ke UI
+local function AddLog(text)
+    local NewLabel = Template:Clone()
+    NewLabel.Text = text
+    NewLabel.Visible = true
+    NewLabel.Parent = Scroll
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, #Scroll:GetChildren() * 20)
 end
 
-local function formatArgs(args)
-    local output = {}
-    for i, v in ipairs(args) do
-        local t = typeof(v)
-        if t == "string" then
-            table.insert(output, '"' .. v .. '"')
-        elseif t == "table" then
-            table.insert(output, "table: " .. tostring(v))
-        else
-            table.insert(output, tostring(v))
+-- Simpan log juga ke file (khusus exploit yang support writefile)
+local function SaveLog(text)
+    local filename = "RemoteFunction_Log.txt"
+    if writefile and appendfile then
+        if not isfile(filename) then
+            writefile(filename, "")
         end
-    end
-    return table.concat(output, ", ")
-end
-
--- Hook RemoteFunction
-for _, obj in ipairs(game:GetDescendants()) do
-    if obj:IsA("RemoteFunction") then
-        local oldInvoke = obj.OnClientInvoke
-        obj.OnClientInvoke = function(...)
-            local logText = "[FUNCTION] " .. obj:GetFullName() .. " | Args: " .. formatArgs({...})
-            print(logText)
-            writeLog(logText)
-            if oldInvoke then
-                return oldInvoke(...)
-            end
-        end
+        appendfile(filename, text .. "\n")
     end
 end
 
--- UI
-local screenGui = Instance.new("ScreenGui", game.CoreGui)
-local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 400, 0, 300)
-frame.Position = UDim2.new(0.35, 0, 0.2, 0)
-frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-frame.Active, frame.Draggable = true, true
+-- Hook metamethod untuk deteksi RemoteFunction
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+setreadonly(mt, false)
 
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, 0, 0, 25)
-title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-title.Text = "RemoteFunction Logger"
-title.TextColor3 = Color3.new(1, 1, 1)
-
-local logBox = Instance.new("TextBox", frame)
-logBox.Size = UDim2.new(1, -10, 1, -35)
-logBox.Position = UDim2.new(0, 5, 0, 30)
-logBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-logBox.TextColor3 = Color3.new(1, 1, 1)
-logBox.TextXAlignment, logBox.TextYAlignment = Enum.TextXAlignment.Left, Enum.TextYAlignment.Top
-logBox.ClearTextOnFocus = false
-logBox.MultiLine = true
-logBox.TextWrapped = false
-logBox.TextSize = 14
-logBox.Text = "Menunggu function..."
-
-task.spawn(function()
-    while true do
-        if isfile(logFile) then
-            logBox.Text = readfile(logFile)
-        end
-        task.wait(1)
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if method == "InvokeServer" then
+        local args = {...}
+        local msg = "[RF Invoke] " .. tostring(self) .. " | Args: " .. table.concat(args, ", ")
+        AddLog(msg)
+        SaveLog(msg)
     end
+    return oldNamecall(self, ...)
 end)
 
-print("[RemoteFunction Logger] Aktif. Log disimpan di:", logFile)
+setreadonly(mt, true)
+
+AddLog("RemoteFunction Logger Started!")
+SaveLog("RemoteFunction Logger Started!")
