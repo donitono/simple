@@ -1,60 +1,98 @@
--- RemoteFunction Logger UI Aman (Tidak Error OnClientInvoke)
--- Buat ScreenGui
-local ScreenGui = Instance.new("ScreenGui")
-local Frame = Instance.new("Frame")
-local Title = Instance.new("TextLabel")
-local Scroll = Instance.new("ScrollingFrame")
-local Template = Instance.new("TextLabel")
+-- RemoteFunction Logger Aman + Filter UI
+local MAX_LOGS = 200
+local logFile = "RemoteFunction_Log.txt"
+local logs = {}
+local minimized = false
+local filterText = ""
 
-ScreenGui.Name = "RemoteFunctionLogger"
-ScreenGui.Parent = game.CoreGui
-
-Frame.Size = UDim2.new(0, 400, 0, 300)
-Frame.Position = UDim2.new(0.5, -200, 0.5, -150)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Frame.Parent = ScreenGui
-
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-Title.Text = "RemoteFunction Logger"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Parent = Frame
-
-Scroll.Size = UDim2.new(1, 0, 1, -30)
-Scroll.Position = UDim2.new(0, 0, 0, 30)
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-Scroll.BackgroundTransparency = 1
-Scroll.Parent = Frame
-
-Template.Size = UDim2.new(1, 0, 0, 20)
-Template.BackgroundTransparency = 1
-Template.TextColor3 = Color3.fromRGB(255, 255, 255)
-Template.TextXAlignment = Enum.TextXAlignment.Left
-Template.Text = ""
-Template.Visible = false
-Template.Parent = Scroll
-
--- Fungsi untuk tambah log ke UI
-local function AddLog(text)
-    local NewLabel = Template:Clone()
-    NewLabel.Text = text
-    NewLabel.Visible = true
-    NewLabel.Parent = Scroll
-    Scroll.CanvasSize = UDim2.new(0, 0, 0, #Scroll:GetChildren() * 20)
+local function timestamp()
+    return os.date("[%H:%M:%S]")
 end
 
--- Simpan log juga ke file (khusus exploit yang support writefile)
-local function SaveLog(text)
-    local filename = "RemoteFunction_Log.txt"
+local function saveLog(text)
     if writefile and appendfile then
-        if not isfile(filename) then
-            writefile(filename, "")
+        if not isfile(logFile) then
+            writefile(logFile, "")
         end
-        appendfile(filename, text .. "\n")
+        appendfile(logFile, text .. "\n")
     end
 end
 
--- Hook metamethod untuk deteksi RemoteFunction
+local function addLog(text)
+    table.insert(logs, text)
+    if #logs > MAX_LOGS then
+        table.remove(logs, 1)
+    end
+    saveLog(text)
+    if not minimized then
+        logBox.Text = table.concat(logs, "\n")
+    end
+end
+
+-- UI
+local gui = Instance.new("ScreenGui", game.CoreGui)
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 450, 0, 350)
+frame.Position = UDim2.new(0.5, -225, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.Active, frame.Draggable = true, true
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 25)
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.Text = "RemoteFunction Logger"
+title.TextColor3 = Color3.new(1, 1, 1)
+
+local filterBox = Instance.new("TextBox", frame)
+filterBox.Size = UDim2.new(0.6, -10, 0, 25)
+filterBox.Position = UDim2.new(0, 5, 0, 30)
+filterBox.PlaceholderText = "Ketik nama function (kosong = semua)"
+filterBox.TextColor3 = Color3.new(1, 1, 1)
+filterBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+
+local clearBtn = Instance.new("TextButton", frame)
+clearBtn.Size = UDim2.new(0.2, -5, 0, 25)
+clearBtn.Position = UDim2.new(0.6, 5, 0, 30)
+clearBtn.Text = "Clear"
+clearBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+clearBtn.TextColor3 = Color3.new(1, 1, 1)
+
+local minimizeBtn = Instance.new("TextButton", frame)
+minimizeBtn.Size = UDim2.new(0.2, -5, 0, 25)
+minimizeBtn.Position = UDim2.new(0.8, 5, 0, 30)
+minimizeBtn.Text = "Minimize"
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 0)
+minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
+
+logBox = Instance.new("TextBox", frame)
+logBox.Size = UDim2.new(1, -10, 1, -65)
+logBox.Position = UDim2.new(0, 5, 0, 60)
+logBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+logBox.TextColor3 = Color3.new(1, 1, 1)
+logBox.TextXAlignment = Enum.TextXAlignment.Left
+logBox.TextYAlignment = Enum.TextYAlignment.Top
+logBox.ClearTextOnFocus = false
+logBox.MultiLine = true
+logBox.TextWrapped = false
+logBox.TextSize = 14
+
+filterBox:GetPropertyChangedSignal("Text"):Connect(function()
+    filterText = filterBox.Text
+end)
+
+clearBtn.MouseButton1Click:Connect(function()
+    logs = {}
+    logBox.Text = ""
+end)
+
+minimizeBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    logBox.Visible = not minimized
+    filterBox.Visible = not minimized
+    clearBtn.Visible = not minimized
+end)
+
+-- Hook __namecall
 local mt = getrawmetatable(game)
 local oldNamecall = mt.__namecall
 setreadonly(mt, false)
@@ -62,15 +100,16 @@ setreadonly(mt, false)
 mt.__namecall = newcclosure(function(self, ...)
     local method = getnamecallmethod()
     if method == "InvokeServer" then
-        local args = {...}
-        local msg = "[RF Invoke] " .. tostring(self) .. " | Args: " .. table.concat(args, ", ")
-        AddLog(msg)
-        SaveLog(msg)
+        if filterText == "" or string.find(string.lower(self.Name), string.lower(filterText)) then
+            local args = {...}
+            local argStr = {}
+            for i, v in ipairs(args) do
+                table.insert(argStr, tostring(v))
+            end
+            addLog(timestamp() .. " FUNC: " .. self:GetFullName() .. " | Args: " .. table.concat(argStr, ", "))
+        end
     end
     return oldNamecall(self, ...)
 end)
 
 setreadonly(mt, true)
-
-AddLog("RemoteFunction Logger Started!")
-SaveLog("RemoteFunction Logger Started!")
