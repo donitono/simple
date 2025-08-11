@@ -1,261 +1,282 @@
---[[
-RemoteSpy PRO ULTIMATE - Tab View + Auto Save TXT
-By ChatGPT
-Executor harus support: writefile, appendfile, setclipboard
-]]
+-- RemoteSpy DELTA (VERSI LENGKAP)
+-- By ChatGPT (adapted for Delta Android)
+-- Features: namecall hook (FireServer/InvokeServer), OnClientEvent scan, table dump, GUI (drag/minimize/search), copy all
 
--- ==== SETTINGS ====
-local FILE_TO_SERVER = "RemoteSpy_ToServer.txt"
-local FILE_FROM_SERVER = "RemoteSpy_FromServer.txt"
-
--- ==== Utility Save ====
-local function saveToFile(fileName, text)
-    if writefile and appendfile then
-        if not isfile(fileName) then
-            writefile(fileName, text .. "\n")
-        else
-            appendfile(fileName, text .. "\n")
-        end
-    else
-        warn("Executor tidak support writefile/appendfile")
-    end
-end
-
--- ==== Dump Table ====
-local function dumpTable(t, indent)
-    indent = indent or 0
-    local spacing = string.rep("  ", indent)
-    local result = {}
-    for k, v in pairs(t) do
-        if type(v) == "table" then
-            table.insert(result, spacing .. tostring(k) .. " = {")
-            local nested = dumpTable(v, indent + 1)
-            for _, line in ipairs(nested) do
-                table.insert(result, line)
-            end
-            table.insert(result, spacing .. "}")
-        else
-            table.insert(result, spacing .. tostring(k) .. " = " .. tostring(v))
-        end
-    end
-    return result
-end
-
--- ==== Format Args ====
-local function formatArgs(args)
-    local str = {}
-    for _, v in ipairs(args) do
-        if type(v) == "table" then
-            table.insert(str, "{TABLE}")
-            local dumped = dumpTable(v)
-            for _, line in ipairs(dumped) do
-                print("[TABLE ARG] " .. line)
-            end
-        elseif typeof(v) == "string" then
-            table.insert(str, '"' .. v .. '"')
-        else
-            table.insert(str, tostring(v))
-        end
-    end
-    return table.concat(str, ", ")
-end
-
--- ==== GUI ====
+-- ======= Utilities =======
+local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
-local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "RemoteSpyUltimate"
+local LocalPlayer = Players.LocalPlayer
 
-local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 550, 0, 400)
-Frame.Position = UDim2.new(0.5, -275, 0.1, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Frame.Active = true
-Frame.Draggable = true
+local function safeType(v)
+    local ok, t = pcall(function() return typeof(v) end)
+    if ok then return t end
+    return type(v)
+end
 
-local Title = Instance.new("TextLabel", Frame)
-Title.Size = UDim2.new(1, -60, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Text = "RemoteSpy PRO ULTIMATE - Tab View + Auto Save"
+local function dumpTable(t, indent, visited)
+    indent = indent or 0
+    visited = visited or {}
+    if type(t) ~= "table" then return {tostring(t)} end
+    if visited[t] then return {"<recursive-table>"} end
+    visited[t] = true
+    local out = {}
+    local pad = string.rep("  ", indent)
+    for k,v in pairs(t) do
+        local key = tostring(k)
+        if type(v) == "table" then
+            table.insert(out, pad .. key .. " = {")
+            local nested = dumpTable(v, indent+1, visited)
+            for _,line in ipairs(nested) do table.insert(out, line) end
+            table.insert(out, pad .. "}")
+        else
+            local vt = safeType(v)
+            local val = (vt == "string") and ('"'..v..'"') or tostring(v)
+            table.insert(out, pad .. key .. " = " .. val)
+        end
+    end
+    visited[t] = nil
+    return out
+end
 
-local MinimizeBtn = Instance.new("TextButton", Frame)
-MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
-MinimizeBtn.Position = UDim2.new(1, -30, 0, 0)
-MinimizeBtn.Text = "-"
-MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinimizeBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+local function formatArgs(args)
+    local parts = {}
+    for i,v in ipairs(args) do
+        local vt = safeType(v)
+        if vt == "table" then
+            table.insert(parts, "{TABLE}")
+            local dumped = dumpTable(v)
+            for _,line in ipairs(dumped) do print("[TABLE ARG] " .. line) end
+        elseif vt == "string" then
+            table.insert(parts, '"'..v..'"')
+        else
+            table.insert(parts, tostring(v))
+        end
+    end
+    return table.concat(parts, ", ")
+end
 
-local TabToServer = Instance.new("TextButton", Frame)
-TabToServer.Size = UDim2.new(0, 100, 0, 30)
-TabToServer.Position = UDim2.new(0, 0, 0, 30)
-TabToServer.Text = "To Server"
-TabToServer.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-TabToServer.TextColor3 = Color3.fromRGB(255, 255, 255)
+-- ======= GUI =======
+local screen = Instance.new("ScreenGui")
+screen.Name = "DeltaRemoteSpy"
+screen.ResetOnSpawn = false
+screen.Parent = CoreGui
 
-local TabFromServer = Instance.new("TextButton", Frame)
-TabFromServer.Size = UDim2.new(0, 100, 0, 30)
-TabFromServer.Position = UDim2.new(0, 100, 0, 30)
-TabFromServer.Text = "From Server"
-TabFromServer.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-TabFromServer.TextColor3 = Color3.fromRGB(255, 255, 255)
+local frame = Instance.new("Frame", screen)
+frame.Size = UDim2.new(0, 540, 0, 420)
+frame.Position = UDim2.new(0.2,0,0.08,0)
+frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
+frame.BorderSizePixel = 0
 
-local SearchBox = Instance.new("TextBox", Frame)
-SearchBox.Size = UDim2.new(0, 200, 0, 30)
-SearchBox.Position = UDim2.new(1, -210, 0, 30)
-SearchBox.PlaceholderText = "Search..."
-SearchBox.Text = ""
-SearchBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+-- Title bar
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, -80, 0, 34)
+title.Position = UDim2.new(0,8,0,4)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.new(1,1,1)
+title.Text = "RemoteSpy DELTA (Lengkap) - Click logs to copy"
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 16
 
-local Scroll = Instance.new("ScrollingFrame", Frame)
-Scroll.Size = UDim2.new(1, 0, 1, -60)
-Scroll.Position = UDim2.new(0, 0, 0, 60)
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-Scroll.BackgroundTransparency = 1
-local UIList = Instance.new("UIListLayout", Scroll)
-UIList.SortOrder = Enum.SortOrder.LayoutOrder
+local btnMin = Instance.new("TextButton", frame)
+btnMin.Size = UDim2.new(0, 28, 0, 28)
+btnMin.Position = UDim2.new(1, -36, 0, 4)
+btnMin.Text = "-"
+btnMin.BackgroundColor3 = Color3.fromRGB(65,65,65)
+btnMin.TextColor3 = Color3.new(1,1,1)
 
+local btnCopyAll = Instance.new("TextButton", frame)
+btnCopyAll.Size = UDim2.new(0, 90, 0, 28)
+btnCopyAll.Position = UDim2.new(1, -140, 0, 4)
+btnCopyAll.Text = "Copy All"
+btnCopyAll.BackgroundColor3 = Color3.fromRGB(60,60,60)
+btnCopyAll.TextColor3 = Color3.new(1,1,1)
+
+-- Search box
+local search = Instance.new("TextBox", frame)
+search.Size = UDim2.new(0, 180, 0, 28)
+search.Position = UDim2.new(1, -330, 0, 4)
+search.PlaceholderText = "search..."
+search.TextColor3 = Color3.new(1,1,1)
+search.BackgroundColor3 = Color3.fromRGB(48,48,48)
+
+-- Log area
+local scroll = Instance.new("ScrollingFrame", frame)
+scroll.Size = UDim2.new(1, -16, 1, -54)
+scroll.Position = UDim2.new(0,8,0,46)
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.BackgroundTransparency = 1
+scroll.ScrollBarThickness = 6
+
+local uiList = Instance.new("UIListLayout", scroll)
+uiList.SortOrder = Enum.SortOrder.LayoutOrder
+uiList.Padding = UDim.new(0,4)
+
+-- Dragging (manual for better compatibility)
+local dragging = false
+local dragStart = Vector2.new()
+local startPos = UDim2.new()
+title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+title.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- minimize behavior
 local minimized = false
-MinimizeBtn.MouseButton1Click:Connect(function()
+btnMin.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
-        Scroll.Visible = false
-        TabToServer.Visible = false
-        TabFromServer.Visible = false
-        SearchBox.Visible = false
-        Frame.Size = UDim2.new(0, 550, 0, 30)
-        MinimizeBtn.Text = "+"
-    else
-        Scroll.Visible = true
-        TabToServer.Visible = true
-        TabFromServer.Visible = true
-        SearchBox.Visible = true
-        Frame.Size = UDim2.new(0, 550, 0, 400)
-        MinimizeBtn.Text = "-"
-    end
-end)
-
--- ==== Tab System ====
-local currentTab = "ToServer"
-local logs = { ToServer = {}, FromServer = {} }
-
-local function refreshLogs()
-    Scroll:ClearAllChildren()
-    UIList.Parent = Scroll
-    local keyword = string.lower(SearchBox.Text)
-    for _, logBtn in ipairs(logs[currentTab]) do
-        if keyword == "" or string.find(string.lower(logBtn.Text), keyword, 1, true) then
-            logBtn.Parent = Scroll
+        for _,v in ipairs(frame:GetChildren()) do
+            if v ~= title and v ~= btnMin and v ~= btnCopyAll then
+                v.Visible = false
+            end
         end
+        frame.Size = UDim2.new(0, 260, 0, 40)
+        btnMin.Text = "+"
+    else
+        for _,v in ipairs(frame:GetChildren()) do v.Visible = true end
+        frame.Size = UDim2.new(0, 540, 0, 420)
+        btnMin.Text = "-"
     end
-    Scroll.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y)
-end
-
-TabToServer.MouseButton1Click:Connect(function()
-    currentTab = "ToServer"
-    TabToServer.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    TabFromServer.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    refreshLogs()
 end)
 
-TabFromServer.MouseButton1Click:Connect(function()
-    currentTab = "FromServer"
-    TabFromServer.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    TabToServer.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    refreshLogs()
-end)
+-- ======= Logging backend =======
+local logs = {} -- { {text=..., dir="To"|"From"} ... }
+local uiButtons = {} -- keep references to UI elements
 
-SearchBox:GetPropertyChangedSignal("Text"):Connect(refreshLogs)
-
--- ==== Add Log Function ====
-local function addLog(tabName, text, fileName)
+local function addLogEntry(txt, dir)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 20)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Size = UDim2.new(1, -8, 0, 24)
+    btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    btn.TextColor3 = Color3.fromRGB(1,1,1)
     btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.Text = text
+    btn.Text = txt
+    btn.Parent = scroll
+
     btn.MouseButton1Click:Connect(function()
-        if setclipboard then
-            setclipboard(text)
-            btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-            btn.Text = text .. " [COPIED!]"
-            task.wait(0.5)
-            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-            btn.Text = text
+        if pcall(function() return setclipboard end) then
+            pcall(function() setclipboard(txt) end)
+            local old = btn.Text
+            btn.Text = txt .. "  [COPIED]"
+            task.wait(0.6)
+            if btn then btn.Text = old end
+        else
+            -- fallback: print
+            print("setclipboard not available on this executor")
         end
     end)
-    table.insert(logs[tabName], btn)
-    saveToFile(fileName, text)
-    refreshLogs()
+
+    table.insert(logs, {text = txt, dir = dir})
+    table.insert(uiButtons, btn)
+    scroll.CanvasSize = UDim2.new(0,0,0, uiList.AbsoluteContentSize.Y + 8)
 end
 
--- ==== Filter Remote ====
-local function passesFilter(name)
-    local blockList = { "Heartbeat", "Stepped", "RenderStepped" }
-    for _, blocked in ipairs(blockList) do
-        if string.find(name, blocked) then
-            return false
+local function refreshFilter()
+    local k = string.lower(search.Text or "")
+    for i,entry in ipairs(logs) do
+        local btn = uiButtons[i]
+        if k == "" or string.find(string.lower(entry.text), k, 1, true) then
+            btn.Visible = true
+        else
+            btn.Visible = false
         end
+    end
+    scroll.CanvasSize = UDim2.new(0,0,0, uiList.AbsoluteContentSize.Y + 8)
+end
+search:GetPropertyChangedSignal("Text"):Connect(refreshFilter)
+
+btnCopyAll.MouseButton1Click:Connect(function()
+    local all = {}
+    for _,e in ipairs(logs) do table.insert(all, e.text) end
+    local combined = table.concat(all, "\n")
+    if pcall(function() return setclipboard end) then
+        pcall(function() setclipboard(combined) end)
+        print("[RemoteSpy] Copied all logs to clipboard ("..#logs.." entries)")
+    else
+        print("[RemoteSpy] setclipboard not supported")
+    end
+end)
+
+-- ======= Hook machinery (namecall) =======
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+local oldIndex = mt.__index
+local blockedNames = { "Heartbeat", "Stepped", "RenderStepped" }
+
+local function passesFilter(name)
+    if not name then return true end
+    for _,b in ipairs(blockedNames) do
+        if string.find(name, b) then return false end
     end
     return true
 end
 
--- ==== Hook Remote Events ====
-local function hookRemoteEvent(remote)
-    if passesFilter(remote.Name) then
-        -- From Server
-        remote.OnClientEvent:Connect(function(...)
-            local line = "[FROM SERVER] " .. remote:GetFullName() .. " | Args: " .. formatArgs({...})
-            addLog("FromServer", line, FILE_FROM_SERVER)
-        end)
-        -- To Server
-        local oldFireServer = remote.FireServer
-        remote.FireServer = function(self, ...)
-            local line = "[TO SERVER] " .. self:GetFullName() .. " | Args: " .. formatArgs({...})
-            addLog("ToServer", line, FILE_TO_SERVER)
-            return oldFireServer(self, ...)
-        end
+setreadonly(mt, false)
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    if (method == "FireServer" or method == "InvokeServer") and passesFilter(tostring(self)) then
+        local txt = "[TO SERVER] " .. tostring(self:GetFullName and pcall(function() return self:GetFullName() end) and self:GetFullName() or tostring(self)) .. " | Args: " .. formatArgs(args)
+        addLogEntry(txt, "ToServer")
+        -- also print for detail
+        print(txt)
     end
-end
+    return oldNamecall(self, ...)
+end)
+setreadonly(mt, true)
 
-local function hookRemoteFunction(remote)
-    if passesFilter(remote.Name) then
-        -- From Server
-        remote.OnClientInvoke = function(...)
-            local line = "[FROM SERVER] " .. remote:GetFullName() .. " | Args: " .. formatArgs({...})
-            addLog("FromServer", line, FILE_FROM_SERVER)
-            return nil
-        end
-        -- To Server
-        local oldInvokeServer = remote.InvokeServer
-        remote.InvokeServer = function(self, ...)
-            local line = "[TO SERVER] " .. self:GetFullName() .. " | Args: " .. formatArgs({...})
-            addLog("ToServer", line, FILE_TO_SERVER)
-            return oldInvokeServer(self, ...)
-        end
-    end
-end
-
--- Hook existing remotes
-for _, obj in ipairs(game:GetDescendants()) do
+-- ======= Hook existing Remotes (server -> client) =======
+local function tryHookRemote(obj)
     if obj:IsA("RemoteEvent") then
-        hookRemoteEvent(obj)
+        if passesFilter(obj.Name) then
+            pcall(function()
+                obj.OnClientEvent:Connect(function(...)
+                    local args = {...}
+                    local txt = "[FROM SERVER] " .. (pcall(function() return obj:GetFullName() end) and obj:GetFullName() or tostring(obj)) .. " | Args: " .. formatArgs(args)
+                    addLogEntry(txt, "FromServer")
+                    print(txt)
+                end)
+            end)
+        end
     elseif obj:IsA("RemoteFunction") then
-        hookRemoteFunction(obj)
+        if passesFilter(obj.Name) then
+            pcall(function()
+                obj.OnClientInvoke = function(...)
+                    local args = {...}
+                    local txt = "[FROM SERVER INVOKE] " .. (pcall(function() return obj:GetFullName() end) and obj:GetFullName() or tostring(obj)) .. " | Args: " .. formatArgs(args)
+                    addLogEntry(txt, "FromServer")
+                    print(txt)
+                    return nil
+                end
+            end)
+        end
     end
 end
 
--- Hook new remotes
+-- Hook all current remotes
+for _,v in ipairs(game:GetDescendants()) do
+    pcall(function() tryHookRemote(v) end)
+end
+
+-- Auto-hook new ones
 game.DescendantAdded:Connect(function(obj)
-    if obj:IsA("RemoteEvent") then
-        hookRemoteEvent(obj)
-    elseif obj:IsA("RemoteFunction") then
-        hookRemoteFunction(obj)
-    end
+    pcall(function() tryHookRemote(obj) end)
 end)
 
--- Init
-addLog("ToServer", "✅ RemoteSpy PRO ULTIMATE Loaded (To Server)", FILE_TO_SERVER)
-addLog("FromServer", "✅ RemoteSpy PRO ULTIMATE Loaded (From Server)", FILE_FROM_SERVER)
+-- initial message
+addLogEntry("✅ RemoteSpy DELTA (Lengkap) loaded — do actions to capture logs", "Info")
+print("[RemoteSpy] Loaded. Listening for FireServer/InvokeServer and OnClientEvent.")
+
+-- End of script
